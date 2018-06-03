@@ -7,6 +7,7 @@ import net.minecraftforge.fml.common.event.FMLConstructionEvent;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.cfpa.i18nupdatemod.config.MainConfig;
 import org.cfpa.i18nupdatemod.download.DownloadManager;
 import org.cfpa.i18nupdatemod.download.DownloadStatus;
 import org.cfpa.i18nupdatemod.download.DownloadWindow;
@@ -30,20 +31,24 @@ public class I18nUpdateMod {
 
     @Mod.EventHandler
     public void construct(FMLConstructionEvent event) throws InterruptedException {
+        // 首先检测文件是否超过阈值
+        if (!intervalDaysCheck()) {
+            logger.info("未到下次更新时间，跳过检测和下载阶段");
+            setupResourcesPack();
+        }
         // 如果文件已经可用则直接跳过下载
-        if (checkLength()) {
+        else if (checkLength()) {
             logger.info("检测到资源包可用，跳过下载阶段");
             setupResourcesPack();
         } else {
             // 开始下载资源包并弹出进度窗口
-            DownloadManager downloader = new DownloadManager("http://p985car2i.bkt.clouddn.com/Minecraft-Mod-Language-Modpack.zip", "Minecraft-Mod-Language-Modpack.zip", Minecraft.getMinecraft().getResourcePackRepository().getDirResourcepacks().toString());
+            DownloadManager downloader = new DownloadManager(MainConfig.download.langPackURL, MainConfig.download.langPackName, Minecraft.getMinecraft().getResourcePackRepository().getDirResourcepacks().toString());
             DownloadWindow window = new DownloadWindow(downloader);
             window.showWindow();
             downloader.start();
 
             // 阻塞主线程，以保证资源包在preInit阶段被安装
-            // 超时30秒，1分钟有人反馈太长了
-            int i = 600;
+            int i = MainConfig.download.maxTime * 20;
             while (!downloader.isDone() && i >= 0) {
                 Thread.sleep(50);
                 if (i == 0) {
@@ -60,7 +65,9 @@ public class I18nUpdateMod {
         }
 
         // 变化语言为中文
-        setupLang();
+        if (MainConfig.download.setupChinese) {
+            setupLang();
+        }
     }
 
     @Mod.EventHandler

@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.ResourcePackRepository;
 import net.minecraft.client.settings.GameSettings;
+import org.cfpa.i18nupdatemod.config.MainConfig;
 
 import java.io.File;
 import java.net.URL;
@@ -15,16 +16,37 @@ public class I18nUtils {
         throw new UnsupportedOperationException("no instance");
     }
 
-    public static boolean checkLength() {
-        File f = new File(Minecraft.getMinecraft().getResourcePackRepository().getDirResourcepacks().toString(), "Minecraft-Mod-Language-Modpack.zip");
+    /**
+     * 用来判断下载文件是否超过了时间阈值
+     *
+     * @return 文件是否超过了阈值
+     */
+    public static boolean intervalDaysCheck() {
+        File f = new File(Minecraft.getMinecraft().getResourcePackRepository().getDirResourcepacks().toString(), MainConfig.download.langPackName);
         try {
-            URL url = new URL("http://p985car2i.bkt.clouddn.com/Minecraft-Mod-Language-Modpack.zip");
+            I18nUpdateMod.logger.info(System.currentTimeMillis() - f.lastModified());
+            I18nUpdateMod.logger.info(MainConfig.download.maxDay * 24 * 3600 * 1000);
+            return (System.currentTimeMillis() - f.lastModified()) > (MainConfig.download.maxDay * 24 * 3600 * 1000);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 对比远程文件和本地文件大小，精确到 Byte
+     *
+     * @return 远程文件是否和本地文件大小匹配
+     */
+    public static boolean checkLength() {
+        File f = new File(Minecraft.getMinecraft().getResourcePackRepository().getDirResourcepacks().toString(), MainConfig.download.langPackName);
+        try {
+            URL url = new URL(MainConfig.download.langPackURL);
             return url.openConnection().getContentLengthLong() == f.length();
         } catch (Throwable e) {
             e.printStackTrace();
             return false;
         }
-
     }
 
     public static void reloadResources() {
@@ -64,8 +86,8 @@ public class I18nUtils {
         Minecraft mc = Minecraft.getMinecraft();
         GameSettings gameSettings = mc.gameSettings;
         // 在gameSetting中加载资源包
-        if (!gameSettings.resourcePacks.contains("Minecraft-Mod-Language-Modpack.zip")) {
-            mc.gameSettings.resourcePacks.add("Minecraft-Mod-Language-Modpack.zip");
+        if (!gameSettings.resourcePacks.contains(MainConfig.download.langPackName)) {
+            mc.gameSettings.resourcePacks.add(MainConfig.download.langPackName);
             I18nUtils.reloadResources();
         }
     }
