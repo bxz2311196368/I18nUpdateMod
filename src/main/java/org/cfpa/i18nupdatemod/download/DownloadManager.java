@@ -9,7 +9,7 @@ import java.net.URLConnection;
 public class DownloadManager {
     private Thread downloadThread;
     private MainDownloader downloader;
-    private DownloadStatus status = DownloadStatus.DOWNLOADING;
+    private DownloadStatus status = DownloadStatus.IDLE;
 
     /**
      * 下载管理器
@@ -30,11 +30,12 @@ public class DownloadManager {
      * 开始下载
      */
     public void start() {
+        status = DownloadStatus.DOWNLOADING;
         downloadThread = new Thread(() -> {
             try {
                 downloader.downloadResource();
             } catch (Throwable e) {
-                e.printStackTrace();
+                catching(e);
             }
         }, "I18n-Download-Thread");
         downloadThread.start();
@@ -43,7 +44,11 @@ public class DownloadManager {
     public void cancel() {
         downloader.done = true;
         status = DownloadStatus.CANCELED;
-        downloadThread.interrupt();
+        downloader.alive = false;
+    }
+
+    public void background() {
+        status = DownloadStatus.BACKGROUND;
     }
 
     private void catching(Throwable e) {
@@ -58,10 +63,11 @@ public class DownloadManager {
      * DOWNLOADING：正在下载
      * FAIL：下载遇到错误
      * CANCELED：下载被玩家取消
+     *
      * @return 下载状态
      */
     public DownloadStatus getStatus() {
-        if (status == DownloadStatus.DOWNLOADING && downloader.done) {
+        if ((status == DownloadStatus.DOWNLOADING || status == DownloadStatus.BACKGROUND) && downloader.done) {
             status = DownloadStatus.SUCCESS;
         }
         return status;
@@ -93,6 +99,7 @@ public class DownloadManager {
         private int downloadedSize = 0;
         private boolean done = false;
         public float completePercentage = 0.0F;
+        public boolean alive = true;
 
         public MainDownloader(String urlIn, String fileName, String dirPlace) throws IOException {
             this.url = new URL(urlIn);
@@ -115,16 +122,18 @@ public class DownloadManager {
             byte[] getData = readInputStream(inputStream);
 
             //文件保存位置
-            File saveDir = new File(dirPlace);
-            if (!saveDir.exists()) {
-                saveDir.mkdir();
-            }
-            File file = new File(saveDir + File.separator + fileName);
-            FileOutputStream fos = new FileOutputStream(file);
+            if (getData != null) {
+                File saveDir = new File(dirPlace);
+                if (!saveDir.exists()) {
+                    saveDir.mkdir();
+                }
+                File file = new File(saveDir + File.separator + fileName);
+                FileOutputStream fos = new FileOutputStream(file);
 
-            fos.write(getData);
-            fos.close();
-            inputStream.close();
+                fos.write(getData);
+                fos.close();
+                inputStream.close();
+            }
             done = true;
         }
 
@@ -136,6 +145,9 @@ public class DownloadManager {
                 bos.write(buffer, 0, len);
                 downloadedSize += len;
                 completePercentage = (float) downloadedSize / (float) size;
+                if (!alive) {
+                    return null;
+                }
             }
             bos.close();
             return bos.toByteArray();

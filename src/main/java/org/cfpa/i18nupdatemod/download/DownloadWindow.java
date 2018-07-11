@@ -25,9 +25,11 @@ public class DownloadWindow {
     private void init() {
         // 初始化窗口
         frame = new JFrame();
-        Integer width = 450;
-        Integer height = 130;
-        frame.setBounds((Toolkit.getDefaultToolkit().getScreenSize().width - width) / 2, (Toolkit.getDefaultToolkit().getScreenSize().height - height) / 25 * 10, width, height);
+        GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+        int width = gd.getDisplayMode().getWidth() >= 1920 ? (int) (gd.getDisplayMode().getWidth() * 0.2)  : 384;
+        int height = (int) (width * 0.3);
+        frame.setBounds((Toolkit.getDefaultToolkit().getScreenSize().width - width) / 2,
+                (Toolkit.getDefaultToolkit().getScreenSize().height - height) / 25 * 10, width, height);
         frame.setTitle(MainConfig.download.dlWindowsName);
         JPanel contentPane = new JPanel();
         contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -43,7 +45,7 @@ public class DownloadWindow {
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
         // 取消按钮
-        JButton bt = new JButton("取消下载") {
+        JButton btCancel = new JButton("取消下载") {
             @Override
             protected void fireActionPerformed(ActionEvent event) {
                 super.fireActionPerformed(event);
@@ -51,8 +53,22 @@ public class DownloadWindow {
                 frame.setVisible(false);
             }
         };
-        bt.setLayout(new GridLayout(3, 2, 5, 5));
-        contentPane.add(bt);
+        btCancel.setLayout(new GridLayout(3, 2, 5, 5));
+        btCancel.setSize(width / 5, height / 5);
+        contentPane.add(btCancel);
+
+        // 后台下载按钮
+        JButton btBackground = new JButton("后台下载") {
+            @Override
+            protected void fireActionPerformed(ActionEvent event) {
+                super.fireActionPerformed(event);
+                manager.background();
+                frame.setVisible(false);
+            }
+        };
+        btBackground.setLayout(new GridLayout(3, 2, 5, 5));
+        btBackground.setSize(width / 5, height / 5);
+        contentPane.add(btBackground);
 
         // 进度条更新线程
         new Thread(() -> {
@@ -67,24 +83,59 @@ public class DownloadWindow {
             onDownloadFinish();
             if (manager.getStatus() == DownloadStatus.FAIL) {
                 bar.setString("下载失败！");
-                // 如果下载失败允许玩家关闭窗口
-                frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException ignore) {
+                }
+                frame.setVisible(false);
             } else {
                 // 如果下载完成自动关闭窗口
                 frame.setVisible(false);
             }
         }, "I18n-Window-Thread").start();
+
+        // 超时守护进程
+        new Thread(() -> {
+            try {
+                while (manager.getStatus() == DownloadStatus.IDLE)
+                    Thread.sleep(50);
+                int i = MainConfig.download.maxTime;
+                while (!manager.isDone() && i >= 0) {
+                    btBackground.setText("后台下载(" + i + ')');
+                    Thread.sleep(1000);
+                    if (i == 0) {
+                        // 如果超时就隐藏窗口到后台下载并停止阻塞主线程
+                        background();
+                    }
+                    i--;
+                }
+            } catch (Throwable ignore) {
+            }
+        }).start();
     }
 
+    /**
+     * 显示窗口
+     */
     public void showWindow() {
         frame.setVisible(true);
     }
 
-    public void hide() {
+    /**
+     * 后台下载
+     */
+    public void background() {
         frame.setVisible(false);
+        manager.background();
     }
 
-    private static void onDownloadFinish() {
-        //TODO，其实我也不知道要做啥
+    private void onDownloadFinish() {
+        if (!frame.isVisible()) {
+            if (manager.getStatus() == DownloadStatus.SUCCESS) {
+                DownloadInfoHelper.info.add("资源包后台下载完成，下次重启游戏将加载资源包");
+            } else {
+                DownloadInfoHelper.info.add("资源包后台下载失败");
+            }
+        }
     }
 }

@@ -15,6 +15,8 @@ public class MainConfig {
     public static Download download = new Download();
     @Config.Name("问题反馈配置")
     public static Key key = new Key();
+    @Config.Name("启用国际化配置")
+    public static Internationalization internationalization = new Internationalization();
 
     public static class Notice {
         @Config.Name("是否显示通知")
@@ -28,8 +30,8 @@ public class MainConfig {
         public boolean showWeblateButton = true;
 
         @Config.Name("公告链接")
-        @Config.Comment("专为整合作者设计，你只需要提供一个纯网页版txt文件链接，即可加载此公告，注意是 http 网站")
-        public String noticeURL = "http://p985car2i.bkt.clouddn.com/Notice.txt";
+        @Config.Comment("专为整合作者设计，你只需要提供一个纯网页版txt文件(必须是UTF-8格式编码！)链接，即可加载此公告")
+        public String noticeURL = "http://downloader.meitangdehulu.com/Notice.txt";
     }
 
     public static class Download {
@@ -37,12 +39,12 @@ public class MainConfig {
         @Config.RequiresMcRestart
         @Config.Comment("通过修改此处设定更新检测间隔，单位为天。设置为0表示每次启动游戏都检测")
         @Config.RangeInt(min = 0, max = 30)
-        public int maxDay = 0;
+        public int maxDay = 3;
 
         @Config.Name("资源包链接")
         @Config.Comment("虽然我不清楚修改此处有什么用，但是我加一个吧，万一有人需要呢")
         @Config.RequiresMcRestart
-        public String langPackURL = "http://p985car2i.bkt.clouddn.com/Minecraft-Mod-Language-Modpack.zip";
+        public String langPackURL = "http://downloader.meitangdehulu.com/Minecraft-Mod-Language-Modpack.zip";
 
         @Config.Name("资源包名称")
         @Config.Comment("用来自定义下载得到的资源包名称")
@@ -70,7 +72,14 @@ public class MainConfig {
         @Config.Name("自定义反馈按键打开网址")
         @Config.Comment("可能会有人想自定义")
         @Config.RequiresMcRestart
-        public String reportURL = "https://wj.qq.com/s/2135580/0e03/";
+        public String reportURL = "http://issues.cfpa.team";
+    }
+
+    public static class Internationalization {
+        @Config.Name("启用国际化")
+        @Config.Comment("启用后，将依据系统语言来选择开启或关闭资源包下载、公告显示、键位指令注册")
+        @Config.RequiresMcRestart
+        public boolean openI18n = false;
     }
 
     // 用于 GUI 界面配置调节的保存

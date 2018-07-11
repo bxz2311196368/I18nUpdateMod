@@ -8,12 +8,13 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.cfpa.i18nupdatemod.config.MainConfig;
+import org.cfpa.i18nupdatemod.download.DownloadInfoHelper;
 import org.cfpa.i18nupdatemod.download.DownloadManager;
 import org.cfpa.i18nupdatemod.download.DownloadStatus;
 import org.cfpa.i18nupdatemod.download.DownloadWindow;
 import org.cfpa.i18nupdatemod.notice.CmdNotice;
 import org.cfpa.i18nupdatemod.report.CmdReport;
-import org.cfpa.i18nupdatemod.report.ReportKey;
+import org.cfpa.i18nupdatemod.report.HotKeyHandler;
 
 import static org.cfpa.i18nupdatemod.I18nUtils.*;
 
@@ -26,37 +27,44 @@ public class I18nUpdateMod {
 
     public static final Logger logger = LogManager.getLogger(MODID);
 
-    @Mod.Instance
-    public static I18nUpdateMod INSTANCE;
+    // 通知变量
+    public static boolean showNotice = false;
 
     @Mod.EventHandler
     public void construct(FMLConstructionEvent event) throws InterruptedException {
+        // 最开始，检测是否启用国际化配置
+        if (MainConfig.internationalization.openI18n && !isChinese()) {
+            return;
+        }
+
+        DownloadInfoHelper.init();
+
         // 首先检测文件是否超过阈值
         if (!intervalDaysCheck()) {
             logger.info("未到下次更新时间，跳过检测和下载阶段");
             setupResourcesPack();
         }
+        // 如果离线且文件可用则跳过下载
+        else if ((!online()) && isResourcePackExist()) {
+            logger.info("检测到网络不可用，跳过下载阶段");
+            setupResourcesPack();
+        }
         // 如果文件已经可用则直接跳过下载
         else if (checkLength()) {
-            logger.info("检测到资源包可用，跳过下载阶段");
+            logger.info("检测到资源包最新，跳过下载阶段");
             setupResourcesPack();
         } else {
+            // 决定显示通知
+            showNotice = true;
+
             // 开始下载资源包并弹出进度窗口
             DownloadManager downloader = new DownloadManager(MainConfig.download.langPackURL, MainConfig.download.langPackName, Minecraft.getMinecraft().getResourcePackRepository().getDirResourcepacks().toString());
             DownloadWindow window = new DownloadWindow(downloader);
             window.showWindow();
             downloader.start();
 
-            // 阻塞主线程，以保证资源包在preInit阶段被安装
-            int i = MainConfig.download.maxTime * 20;
-            while (!downloader.isDone() && i >= 0) {
-                Thread.sleep(50);
-                if (i == 0) {
-                    // 如果超时就隐藏窗口到后台下载并停止阻塞主线程
-                    window.hide();
-                }
-                i--;
-            }
+            // 阻塞主线程
+            while (downloader.getStatus() == DownloadStatus.DOWNLOADING) Thread.sleep(50);
 
             // 如果下载成功就安装资源包
             if (downloader.getStatus() == DownloadStatus.SUCCESS) {
@@ -72,7 +80,10 @@ public class I18nUpdateMod {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        new ReportKey();
+        if (MainConfig.internationalization.openI18n && !isChinese()) {
+            return;
+        }
+        HotKeyHandler.register();
         ClientCommandHandler.instance.registerCommand(new CmdNotice());
         ClientCommandHandler.instance.registerCommand(new CmdReport());
     }
